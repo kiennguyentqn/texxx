@@ -3,6 +3,10 @@
     {
       "source": "/api/client/links",
       "destination": "http://vohoainam.net/api/client/links"
+    },
+    {
+      "source": "/api/check-auth",
+      "destination": "http://vohoainam.net/api/check-auth"
     }
   ]
 }

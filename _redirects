@@ -1,1 +1,2 @@
-/api/client/links  http://vohoainam.net/api/client/links  200
+   /api/client/links  http://vohoainam.net/api/client/links  200
+   /api/check-auth    http://vohoainam.net/api/check-auth    200
