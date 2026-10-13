@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Links</title>
+    <style>
+      :root {
+        --bg: #0f0e12;
+        --card: #17161b;
+        --border: #26252b;
+        --cyan: #22e5e5;
+        --white: #f2f2f4;
+        --dim: #6f6e76;
+        --orange: #ff8a1f;
+        --red: #ff3b4e;
+        --purple: #a06bff;
+        --btn: #26252b;
+        --g1: #ff2d55;
+        --g2: #ff7a00;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--white);
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+
+      /* thanh nhập device ID */
+      #bar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border);
+        padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+      }
+      #bar form {
+        max-width: 640px;
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+      }
+      #device {
+        flex: 1;
+        min-width: 0;
+        font: inherit;
+        font-size: 14px;
+        color: var(--white);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 11px 14px;
+        outline: none;
+      }
+      #device::placeholder {
+        color: var(--dim);
+      }
+      #device:focus {
+        border-color: var(--cyan);
+      }
+      #minratio {
+        flex: none;
+        width: 96px;
+        font: inherit;
+        font-size: 14px;
+        color: var(--white);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 11px 12px;
+        outline: none;
+      }
+      #minratio::placeholder {
+        color: var(--dim);
+      }
+      #minratio:focus {
+        border-color: var(--cyan);
+      }
+      #save {
+        font: inherit;
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 18px;
+        cursor: pointer;
+        background: linear-gradient(90deg, var(--g1), var(--g2));
+      }
+      #save:active {
+        transform: scale(0.97);
+      }
+
+      #list {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 12px 14px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .card {
+        display: flex;
+        align-items: stretch;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        overflow: hidden;
+      }
+      .bar {
+        width: 4px;
+        margin: 2px 0;
+        background: var(--cyan);
+        border-radius: 0 4px 4px 0;
+        flex: none;
+      }
+      .body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .when {
+        flex: none;
+        width: 74px;
+      }
+      .when .t {
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .when .d {
+        margin-top: 2px;
+        font-size: 14px;
+        color: var(--dim);
+      }
+
+      .mid {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+      }
+      .id {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--cyan);
+        white-space: nowrap;
+      }
+      .id b {
+        color: var(--white);
+        font-weight: 700;
+      }
+
+      .chip {
+        font-size: 12px;
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid;
+        white-space: nowrap;
+      }
+      .box {
+        color: var(--orange);
+        border-color: rgb(255 138 31 / 0.45);
+        background: rgb(255 138 31 / 0.12);
+      }
+      .ratio {
+        color: var(--red);
+        border-color: rgb(255 59 78 / 0.45);
+        background: rgb(255 59 78 / 0.12);
+      }
+      .live {
+        color: var(--purple);
+        border-color: rgb(160 107 255 / 0.45);
+        background: rgb(160 107 255 / 0.12);
+      }
+      .time {
+        color: #4ade80;
+        border-color: rgb(74 222 128 / 0.45);
+        background: rgb(74 222 128 / 0.12);
+      }
+
+      .actions {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      button.copy,
+      a.open {
+        font: inherit;
+        border: 0;
+        cursor: pointer;
+        color: #fff;
+        text-decoration: none;
+      }
+      .copy {
+        background: var(--btn);
+        color: var(--white);
+        font-size: 14px;
+        font-weight: 600;
+        padding: 12px 14px;
+        border-radius: 12px;
+      }
+      .open {
+        background: linear-gradient(90deg, var(--g1), var(--g2));
+        font-size: 16px;
+        font-weight: 800;
+        padding: 14px 22px;
+        border-radius: 999px;
+        box-shadow: 0 6px 18px rgb(255 60 60 / 0.35);
+        white-space: nowrap;
+      }
+      .copy:active,
+      .open:active {
+        transform: scale(0.97);
+      }
+      :is(button, a, input):focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 2px;
+      }
+
+      #status {
+        text-align: center;
+        color: var(--dim);
+        padding: 40px 20px;
+      }
+      #status.err {
+        color: var(--red);
+      }
+
+      #toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        background: #2c2b32;
+        color: var(--white);
+        padding: 10px 18px;
+        border-radius: 999px;
+        font-size: 14px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+
+      @media (max-width: 460px) {
+        .body {
+          flex-wrap: wrap;
+        }
+        .actions {
+          width: 100%;
+          justify-content: flex-end;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <form id="form" autocomplete="off">
+        <input
+          id="device"
+          type="text"
+          placeholder="Nhập device ID (device_xxxxxxxx-...)"
+          spellcheck="false"
+          autocapitalize="off"
+          autocorrect="off"
+        />
+        <input
+          id="minratio"
+          type="text"
+          inputmode="decimal"
+          placeholder="Ratio ≥"
+          aria-label="Ratio tối thiểu"
+        />
+        <button id="save" type="submit">Lưu</button>
+      </form>
+    </div>
+    <div id="list"></div>
+    <div id="status"></div>
+    <div id="toast"></div>
+
+    <script>
+      const API_BASE = "http://vohoainam.net/api/client/links";
+      const STORAGE_KEY = "device_id";
+      const RATIO_KEY = "min_ratio";
+      const REFRESH_MS = 2000; // gọi API mỗi 5 giây
+      const MAX_ITEMS = 30; // chỉ giữ 30 link mới nhất
+
+      const listEl = document.getElementById("list");
+      const statusEl = document.getElementById("status");
+      const toastEl = document.getElementById("toast");
+      const inputEl = document.getElementById("device");
+      const formEl = document.getElementById("form");
+      const ratioEl = document.getElementById("minratio");
+
+      // ---------- localStorage ----------
+      function readDeviceId() {
+        try {
+          return (localStorage.getItem(STORAGE_KEY) || "").trim();
+        } catch (e) {
+          return "";
+        }
+      }
+      function writeDeviceId(v) {
+        try {
+          localStorage.setItem(STORAGE_KEY, v);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function readMinRatio() {
+        try {
+          const v = parseFloat(localStorage.getItem(RATIO_KEY));
+          return Number.isFinite(v) ? v : null;
+        } catch (e) {
+          return null;
+        }
+      }
+      function writeMinRatio(v) {
+        try {
+          if (v == null) localStorage.removeItem(RATIO_KEY);
+          else localStorage.setItem(RATIO_KEY, String(v));
+        } catch (e) {}
+      }
+
+      let deviceId = readDeviceId();
+      let minRatio = readMinRatio(); // null = không lọc
+      let lastItems = []; // dữ liệu lần gọi gần nhất, để lọc lại ngay khi bấm Lưu
+      let gen = 0; // tăng mỗi lần đổi device ID để bỏ kết quả của request cũ
+
+      // ---------- helpers ----------
+      function toast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toastEl.classList.remove("show"), 1400);
+      }
+
+      async function copyText(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (e) {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          try {
+            document.execCommand("copy");
+          } catch (_) {}
+          ta.remove();
+        }
+        toast("Đã copy");
+      }
+
+      function el(tag, cls, text) {
+        const e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text;
+        return e;
+      }
+
+      function showStatus(msg, isErr) {
+        statusEl.hidden = false;
+        statusEl.className = isErr ? "err" : "";
+        statusEl.textContent = msg;
+      }
+
+      // ---------- data ----------
+      function parse(json) {
+        return Object.entries(json.links || {})
+          .map(([key, o]) => {
+            const m = key.match(/link(\d+)$/);
+            const created = o.created_at || "";
+            const sp = created.indexOf(" ");
+            return {
+              key,
+              number: m ? Number(m[1]) : 0,
+              url: o.url || "",
+              time: sp > -1 ? created.slice(0, sp) : created,
+              date: sp > -1 ? created.slice(sp + 1) : "",
+              box: o.box_bag || "",
+              ratio: o.ratio || "",
+              live: o.live || null,
+              span: o.time || null, // "01:30s - 15:43:40"
+              ratioNum: parseFloat(o.ratio), // "2.5 xu" -> 2.5
+            };
+          })
+          .sort((a, b) => b.number - a.number); // mới nhất lên đầu
+      }
+
+      // ---------- UI ----------
+      function card(it) {
+        const c = el("div", "card");
+        c.appendChild(el("div", "bar"));
+        const body = el("div", "body");
+
+        const when = el("div", "when");
+        when.append(el("div", "t", it.time), el("div", "d", it.date));
+
+        const mid = el("div", "mid");
+        const id = el("div", "id");
+        id.append(
+          el("b", null, "/"),
+          document.createTextNode("link" + it.number),
+        );
+        mid.append(
+          id,
+          el("span", "chip box", "Box: " + it.box),
+          el("span", "chip ratio", "Ratio: " + it.ratio),
+        );
+        if (it.live)
+          mid.appendChild(el("span", "chip live", "Live: " + it.live));
+        if (it.span)
+          mid.appendChild(el("span", "chip time", "Time: " + it.span));
+
+        const actions = el("div", "actions");
+        const copy = el("button", "copy", "Copy");
+        copy.type = "button";
+        copy.addEventListener("click", () => copyText(it.url));
+        const open = el("a", "open", "Mở Link");
+        open.href = it.url; // snssdk1180://live?room_id=...
+        actions.append(copy, open);
+
+        body.append(when, mid, actions);
+        c.appendChild(body);
+        return c;
+      }
+
+      // key -> { node, sig }: chỉ thêm/xóa/đổi thẻ nào thật sự thay đổi
+      const cards = new Map();
+
+      function clearCards() {
+        cards.clear();
+        listEl.replaceChildren();
+      }
+
+      function render(items) {
+        const filtered =
+          minRatio == null
+            ? items
+            : items.filter((i) => i.ratioNum >= minRatio);
+        const top = filtered.slice(0, MAX_ITEMS);
+        const keep = new Set(top.map((i) => i.key));
+
+        for (const [k, c] of cards) {
+          if (!keep.has(k)) {
+            c.node.remove();
+            cards.delete(k);
+          }
+        }
+
+        let prev = null;
+        for (const it of top) {
+          const sig = JSON.stringify([
+            it.url,
+            it.time,
+            it.date,
+            it.box,
+            it.ratio,
+            it.live,
+            it.span,
+          ]);
+          let c = cards.get(it.key);
+          if (!c || c.sig !== sig) {
+            const node = card(it);
+            if (c) c.node.replaceWith(node);
+            c = { node, sig };
+            cards.set(it.key, c);
+          }
+          const expected = prev ? prev.nextSibling : listEl.firstChild;
+          if (c.node !== expected) listEl.insertBefore(c.node, expected);
+          prev = c.node;
+        }
+
+        if (top.length) statusEl.hidden = true;
+        else
+          showStatus(
+            minRatio == null
+              ? "Chưa có link nào."
+              : "Không có link nào có Ratio ≥ " + minRatio + ".",
+            false,
+          );
+      }
+
+      // ---------- polling ----------
+      let loading = false;
+      async function load() {
+        if (!deviceId) {
+          showStatus("Nhập device ID ở trên rồi bấm Lưu để bắt đầu.", false);
+          return;
+        }
+        if (loading) return; // request trước chưa xong thì bỏ lượt này
+        loading = true;
+        const myGen = gen;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 4000);
+        try {
+          const url = API_BASE + "?device_id=" + encodeURIComponent(deviceId);
+          const res = await fetch(url, {
+            cache: "no-store",
+            signal: ctrl.signal,
+          });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const json = await res.json();
+          if (myGen !== gen) return; // device ID đã đổi trong lúc chờ
+          if (json.success === false)
+            throw new Error("API trả về success: false");
+          lastItems = parse(json);
+          render(lastItems);
+        } catch (e) {
+          if (myGen === gen && !cards.size)
+            showStatus("Không tải được dữ liệu: " + e.message, true);
+        } finally {
+          clearTimeout(timer);
+          loading = false;
+        }
+      }
+
+      formEl.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const v = inputEl.value.trim();
+        if (!v) {
+          toast("Chưa nhập device ID");
+          return;
+        }
+        const raw = ratioEl.value.trim();
+        const r = raw === "" ? null : parseFloat(raw.replace(",", "."));
+        if (r !== null && !Number.isFinite(r)) {
+          toast("Ratio không hợp lệ");
+          return;
+        }
+
+        const idChanged = v !== deviceId;
+        deviceId = v;
+        minRatio = r;
+        const ok = writeDeviceId(v);
+        writeMinRatio(r);
+        toast(ok ? "Đã lưu" : "Không lưu được vào trình duyệt");
+
+        if (idChanged) {
+          gen++;
+          lastItems = [];
+          clearCards();
+          showStatus("Đang tải...", false);
+          loading = false;
+        } else {
+          render(lastItems); // lọc lại ngay bằng dữ liệu đang có
+        }
+        load();
+      });
+
+      inputEl.value = deviceId;
+      ratioEl.value = minRatio == null ? "" : String(minRatio);
+      load();
+      setInterval(load, REFRESH_MS);
+    </script>
+  </body>
+</html>
