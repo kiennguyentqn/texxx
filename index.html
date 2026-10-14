@@ -455,6 +455,33 @@
         statusEl.textContent = msg;
       }
 
+      // ---------- giải mã enc_url ----------
+      // Link trả về từ API có thể đi kèm trường enc_url (chuỗi hex đã mã hóa).
+      // Server mã hóa mỗi link bằng khóa tính từ device_id của thiết bị được cấp quyền,
+      // nên chỉ giải đúng khi deviceId truyền vào khớp với device_id đó.
+      function deobfuscateLink(hexStr, devId) {
+        if (!hexStr) return "";
+        const devKey = String(devId || "").trim();
+        if (!devKey) return "";
+        const seed = (devKey.length * 37 + 109) % 256;
+        const bytes = new Uint8Array(hexStr.length / 2);
+        for (let i = 0; i < hexStr.length; i += 2) {
+          const byteVal = parseInt(hexStr.substr(i, 2), 16);
+          const idx = i / 2;
+          const k =
+            (devKey.charCodeAt(idx % devKey.length) ^
+              seed ^
+              ((idx * 13) % 256)) &
+            0xff;
+          bytes[idx] = byteVal ^ k;
+        }
+        try {
+          return new TextDecoder().decode(bytes);
+        } catch (e) {
+          return "";
+        }
+      }
+
       // ---------- data ----------
       // created_at "15:42:10 13/10/26" + time "01:30s - 15:43:40" -> mốc hết hạn (ms), hoặc null nếu không có
       // Giờ trong API được hiểu theo múi giờ của trình duyệt.
@@ -482,6 +509,7 @@
               key,
               number: m ? Number(m[1]) : 0,
               url: o.url || "",
+              encUrl: o.enc_url || "",
               group: String(o.group || ""),
               time: sp > -1 ? created.slice(0, sp) : created,
               date: sp > -1 ? created.slice(sp + 1) : "",
@@ -512,10 +540,13 @@
 
         const actions = el("div", "actions");
         const open = el("a", "open", "Mở Link");
-        // https://www.tiktok.com/share/live/<room_id>; thiếu room_id thì dùng deeplink gốc
-        open.href = it.room
-          ? "https://www.tiktok.com/share/live/" + it.room
-          : it.url;
+
+        // Ưu tiên giải mã enc_url bằng device_id hiện tại; nếu không có enc_url
+        // hoặc giải mã thất bại (device_id không khớp), fallback về room_id / url.
+        const decoded = it.encUrl ? deobfuscateLink(it.encUrl, deviceId) : "";
+        open.href =
+          decoded ||
+          (it.room ? "https://www.tiktok.com/share/live/" + it.room : it.url);
         open.target = "_blank";
         open.rel = "noopener";
         actions.append(open);
@@ -595,6 +626,7 @@
         for (const it of top) {
           const sig = JSON.stringify([
             it.url,
+            it.encUrl,
             it.group,
             it.box,
             it.ratio,
