@@ -338,6 +338,7 @@
 
     <script>
       const API_BASE = "/api/client/links";
+      const CHECK_URL = "/api/check-auth"; // proxy tới http://vohoainam.net/api/check-auth
       const STORAGE_KEY = "device_id";
       const RATIO_KEY = "min_ratio";
       const TAB_KEY = "active_tab";
@@ -353,7 +354,7 @@
       const CHANNEL_NAME = Object.fromEntries(
         CHANNELS.map((c) => [c.id, c.name]),
       );
-      const REFRESH_MS = 2000; // gọi API mỗi 5 giây
+      const REFRESH_MS = 2000; // gọi API mỗi 2 giây
       const MAX_ITEMS = 30; // chỉ giữ 30 link mới nhất
 
       const listEl = document.getElementById("list");
@@ -622,9 +623,65 @@
           );
       }
 
+      // ---------- timers + kiểm tra quyền ----------
+      let pollTimer = null;
+      let tickTimer = null;
+      let stopped = false;
+      let checking = false;
+      let lastAuthCheck = 0;
+
+      function startTimers() {
+        stopped = false;
+        if (!pollTimer) pollTimer = setInterval(load, REFRESH_MS);
+        // mỗi giây kiểm tra lại để link hết giờ biến mất ngay, không phải chờ lần gọi API kế tiếp
+        if (!tickTimer)
+          tickTimer = setInterval(() => {
+            if (lastItems.length) render(lastItems);
+          }, 1000);
+      }
+
+      function stopAll(msg) {
+        stopped = true;
+        clearInterval(pollTimer);
+        pollTimer = null;
+        clearInterval(tickTimer);
+        tickTimer = null;
+        gen++; // bỏ kết quả của mọi request đang chờ
+        lastItems = [];
+        lastCounts = null;
+        syncTabs();
+        clearCards();
+        showStatus(msg, true);
+      }
+
+      // Gọi khi API links trả HTTP 404: nếu check-auth báo authorized:false thì dừng hẳn
+      async function checkAuth(myGen) {
+        // tối đa 10 giây một lần, tránh gọi liên tục khi 404 kéo dài
+        if (checking || Date.now() - lastAuthCheck < 10000) return;
+        checking = true;
+        lastAuthCheck = Date.now();
+        try {
+          const res = await fetch(
+            CHECK_URL + "?device_id=" + encodeURIComponent(deviceId),
+            { cache: "no-store" },
+          );
+          const json = await res.json();
+          if (myGen === gen && json.authorized === false) {
+            stopAll(
+              "Thiết bị chưa được cấp quyền (authorized: false). Đã dừng gọi API.",
+            );
+          }
+        } catch (e) {
+          // lỗi khi kiểm tra: bỏ qua, tiếp tục chạy như cũ
+        } finally {
+          checking = false;
+        }
+      }
+
       // ---------- polling ----------
       let loading = false;
       async function load() {
+        if (stopped) return;
         if (!deviceId) {
           showStatus("Nhập device ID ở trên rồi bấm Lưu để bắt đầu.", false);
           return;
@@ -640,16 +697,41 @@
             cache: "no-store",
             signal: ctrl.signal,
           });
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const json = await res.json();
+
+          // đọc body trước, kể cả khi HTTP lỗi, để nhận ra {"error":"Device not authorized"}
+          let json = null;
+          try {
+            json = await res.json();
+          } catch (_) {}
+
           if (myGen !== gen) return; // device ID đã đổi trong lúc chờ
+
+          if (
+            json &&
+            typeof json.error === "string" &&
+            /not authorized/i.test(json.error)
+          ) {
+            stopAll(
+              "Thiết bị chưa được cấp quyền (Device not authorized). Đã dừng gọi API.",
+            );
+            return;
+          }
+
+          if (!res.ok) {
+            const err = new Error("HTTP " + res.status);
+            err.status = res.status;
+            throw err;
+          }
+          if (!json) throw new Error("Phản hồi không phải JSON");
           if (json.success === false)
             throw new Error("API trả về success: false");
+
           lastItems = parse(json);
           render(lastItems);
         } catch (e) {
           if (myGen === gen && !cards.size)
             showStatus("Không tải được dữ liệu: " + e.message, true);
+          if (e.status === 404) checkAuth(myGen);
         } finally {
           clearTimeout(timer);
           loading = false;
@@ -672,6 +754,8 @@
 
         const idChanged = v !== deviceId;
         deviceId = v;
+        lastAuthCheck = 0;
+        startTimers(); // chạy lại nếu trước đó đã bị dừng
         minRatio = r;
         const ok = writeDeviceId(v);
         writeMinRatio(r);
@@ -694,12 +778,8 @@
       buildTabs();
       inputEl.value = deviceId;
       ratioEl.value = minRatio == null ? "" : String(minRatio);
+      startTimers();
       load();
-      setInterval(load, REFRESH_MS);
-      // mỗi giây kiểm tra lại để link hết giờ biến mất ngay, không phải chờ lần gọi API kế tiếp
-      setInterval(() => {
-        if (lastItems.length) render(lastItems);
-      }, 1000);
     </script>
   </body>
 </html>

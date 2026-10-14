@@ -91,28 +91,6 @@
         border-color: var(--cyan);
       }
 
-      /* thời gian còn lại của key */
-      #auth {
-        max-width: 640px;
-        margin: 8px auto 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 13px;
-        color: var(--dim);
-      }
-      #remain {
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        color: #4ade80;
-      }
-      #remain.warn {
-        color: var(--orange); /* dưới 10 phút */
-      }
-      #remain.bad {
-        color: var(--red); /* hết hạn / chưa kích hoạt */
-      }
-
       #tabs {
         max-width: 640px;
         margin: 10px auto 0;
@@ -352,10 +330,6 @@
         />
         <button id="save" type="submit">Lưu</button>
       </form>
-      <div id="auth" hidden>
-        <span id="authInfo"></span>
-        <span id="remain"></span>
-      </div>
       <div id="tabs" role="tablist"></div>
     </div>
     <div id="list"></div>
@@ -364,8 +338,7 @@
 
     <script>
       const API_BASE = "/api/client/links";
-      const AUTH_URL = "/api/check-auth";
-      const AUTH_REFRESH_MS = 30000; // hỏi lại server mỗi 30 giây
+      const CHECK_URL = "/api/check-auth"; // proxy tới http://vohoainam.net/api/check-auth
       const STORAGE_KEY = "device_id";
       const RATIO_KEY = "min_ratio";
       const TAB_KEY = "active_tab";
@@ -391,9 +364,6 @@
       const formEl = document.getElementById("form");
       const ratioEl = document.getElementById("minratio");
       const tabsEl = document.getElementById("tabs");
-      const authEl = document.getElementById("auth");
-      const authInfoEl = document.getElementById("authInfo");
-      const remainEl = document.getElementById("remain");
 
       // ---------- localStorage ----------
       function readDeviceId() {
@@ -447,14 +417,6 @@
       let lastCounts = null; // số link của từng tab (sau khi lọc ratio)
       let lastItems = []; // dữ liệu lần gọi gần nhất, để lọc lại ngay khi bấm Lưu
       let gen = 0; // tăng mỗi lần đổi device ID để bỏ kết quả của request cũ
-      let auth = null; // { authorized, expiresAt, offset, duration, keyTail }
-      let stopped = false; // true khi key hết hạn: dừng toàn bộ request cho tới khi bấm Lưu
-      let linksCtrl = null; // AbortController của request links đang chạy
-      let loadTimer = null;
-      let authTimer = null;
-      let authFails = 0; // số lần check-auth lỗi liên tiếp
-      const AUTH_MAX_FAILS = 3; // lỗi đủ 3 lần thì dừng, không check nữa
-      const AUTH_RETRY_MS = 3000; // thử lại nhanh sau mỗi lần lỗi
 
       // ---------- helpers ----------
       function toast(msg) {
@@ -661,153 +623,59 @@
           );
       }
 
-      // ---------- auth / thời gian còn lại ----------
-      function fmtRemain(ms) {
-        const s = Math.max(0, Math.floor(ms / 1000));
-        const d = Math.floor(s / 86400);
-        const h = Math.floor((s % 86400) / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        const x = s % 60;
-        const p = (n) => String(n).padStart(2, "0");
-        return (
-          (d > 0 ? d + " ngày " : "") +
-          (d > 0 || h > 0 ? p(h) + ":" : "") +
-          p(m) +
-          ":" +
-          p(x)
-        );
+      // ---------- timers + kiểm tra quyền ----------
+      let pollTimer = null;
+      let tickTimer = null;
+      let stopped = false;
+      let checking = false;
+      let lastAuthCheck = 0;
+
+      function startTimers() {
+        stopped = false;
+        if (!pollTimer) pollTimer = setInterval(load, REFRESH_MS);
+        // mỗi giây kiểm tra lại để link hết giờ biến mất ngay, không phải chờ lần gọi API kế tiếp
+        if (!tickTimer)
+          tickTimer = setInterval(() => {
+            if (lastItems.length) render(lastItems);
+          }, 1000);
       }
 
-      function renderAuth() {
-        if (!deviceId) {
-          authEl.hidden = true;
-          return;
-        }
-        authEl.hidden = false;
-        if (!auth) {
-          authInfoEl.textContent = "";
-          remainEl.className = "";
-          remainEl.textContent = "...";
-          return;
-        }
-        authInfoEl.textContent = auth.authorized
-          ? "Key …" +
-            auth.keyTail +
-            (auth.duration ? " · " + auth.duration : "")
-          : "";
-        if (!auth.authorized || auth.expiresAt == null) {
-          remainEl.className = "bad";
-          remainEl.textContent = "Chưa kích hoạt";
-          return;
-        }
-        // dùng server_time để không bị lệch đồng hồ máy
-        const left = auth.expiresAt - (Date.now() + auth.offset);
-        if (left <= 0) {
-          remainEl.className = "bad";
-          remainEl.textContent = "Đã hết hạn";
-        } else {
-          remainEl.className = left < 10 * 60 * 1000 ? "warn" : "";
-          remainEl.textContent = "Còn " + fmtRemain(left);
-        }
-      }
-
-      async function loadAuth() {
-        if (!deviceId || stopped) return;
-        const myGen = gen;
-        try {
-          const res = await fetch(
-            AUTH_URL + "?device_id=" + encodeURIComponent(deviceId),
-            { cache: "no-store" },
-          );
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const j = await res.json();
-          if (myGen !== gen) return;
-          authFails = 0; // check thành công -> reset bộ đếm lỗi
-          const exp = Date.parse(j.expires_at);
-          const srv = Date.parse(j.server_time);
-          auth = {
-            authorized: j.authorized === true && Number.isFinite(exp),
-            expiresAt: Number.isFinite(exp) ? exp : null,
-            offset: Number.isFinite(srv) ? srv - Date.now() : 0,
-            duration: j.duration || "",
-            keyTail: j.key_tail || "",
-          };
-          renderAuth();
-          if (isExpired()) {
-            stopAll(); // hết hạn -> dừng hẳn, không request nữa
-            return;
-          }
-          load(); // có kết quả kích hoạt là tải link ngay, không chờ vòng 2 giây
-        } catch (e) {
-          if (myGen !== gen || stopped) return;
-          authFails++;
-          if (authFails >= AUTH_MAX_FAILS) {
-            // lỗi đủ 3 lần -> dừng hẳn, không request nữa
-            stopAll(
-              "Không kiểm tra được kích hoạt (lỗi " +
-                AUTH_MAX_FAILS +
-                " lần). Bấm Lưu để thử lại.",
-            );
-          } else {
-            setTimeout(() => {
-              if (myGen === gen && !stopped) loadAuth();
-            }, AUTH_RETRY_MS);
-          }
-        }
-      }
-
-      // ---------- chặn khi chưa kích hoạt ----------
-      function isActive() {
-        if (!auth || !auth.authorized || auth.expiresAt == null) return false;
-        return auth.expiresAt - (Date.now() + auth.offset) > 0;
-      }
-
-      // key đã được server xác nhận nhưng đã hết thời gian
-      function isExpired() {
-        return (
-          !!auth &&
-          auth.authorized &&
-          auth.expiresAt != null &&
-          auth.expiresAt - (Date.now() + auth.offset) <= 0
-        );
-      }
-
-      function blockLinks(msg) {
+      function stopAll(msg) {
+        stopped = true;
+        clearInterval(pollTimer);
+        pollTimer = null;
+        clearInterval(tickTimer);
+        tickTimer = null;
+        gen++; // bỏ kết quả của mọi request đang chờ
         lastItems = [];
         lastCounts = null;
         syncTabs();
         clearCards();
-        showStatus(
-          msg ||
-            (auth
-              ? "Thiết bị chưa kích hoạt hoặc key đã hết hạn."
-              : "Đang kiểm tra kích hoạt..."),
-          !!auth,
-        );
+        showStatus(msg, true);
       }
 
-      // hết hạn: hủy request đang chạy, tắt mọi timer gọi API
-      function stopAll(msg) {
-        if (stopped) return;
-        stopped = true;
-        gen++; // bỏ kết quả của request đang bay
-        if (linksCtrl) linksCtrl.abort();
-        clearInterval(loadTimer);
-        clearInterval(authTimer);
-        loadTimer = authTimer = null;
-        blockLinks(
-          msg || "Key đã hết hạn. Gia hạn xong hãy bấm Lưu để kiểm tra lại.",
-        );
-        renderAuth();
-      }
-
-      function startPolling() {
-        stopped = false;
-        authFails = 0;
-        clearInterval(loadTimer);
-        clearInterval(authTimer);
-        loadTimer = setInterval(load, REFRESH_MS);
-        authTimer = setInterval(loadAuth, AUTH_REFRESH_MS);
+      // Gọi khi API links trả HTTP 404: nếu check-auth báo authorized:false thì dừng hẳn
+      async function checkAuth(myGen) {
+        // tối đa 10 giây một lần, tránh gọi liên tục khi 404 kéo dài
+        if (checking || Date.now() - lastAuthCheck < 10000) return;
+        checking = true;
+        lastAuthCheck = Date.now();
+        try {
+          const res = await fetch(
+            CHECK_URL + "?device_id=" + encodeURIComponent(deviceId),
+            { cache: "no-store" },
+          );
+          const json = await res.json();
+          if (myGen === gen && json.authorized === false) {
+            stopAll(
+              "Thiết bị chưa được cấp quyền (authorized: false). Đã dừng gọi API.",
+            );
+          }
+        } catch (e) {
+          // lỗi khi kiểm tra: bỏ qua, tiếp tục chạy như cũ
+        } finally {
+          checking = false;
+        }
       }
 
       // ---------- polling ----------
@@ -818,16 +686,10 @@
           showStatus("Nhập device ID ở trên rồi bấm Lưu để bắt đầu.", false);
           return;
         }
-        if (!isActive()) {
-          // chưa kích hoạt / hết hạn / chưa kiểm tra xong -> KHÔNG gọi API links
-          blockLinks();
-          return;
-        }
         if (loading) return; // request trước chưa xong thì bỏ lượt này
         loading = true;
         const myGen = gen;
         const ctrl = new AbortController();
-        linksCtrl = ctrl;
         const timer = setTimeout(() => ctrl.abort(), 4000);
         try {
           const url = API_BASE + "?device_id=" + encodeURIComponent(deviceId);
@@ -835,16 +697,41 @@
             cache: "no-store",
             signal: ctrl.signal,
           });
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const json = await res.json();
+
+          // đọc body trước, kể cả khi HTTP lỗi, để nhận ra {"error":"Device not authorized"}
+          let json = null;
+          try {
+            json = await res.json();
+          } catch (_) {}
+
           if (myGen !== gen) return; // device ID đã đổi trong lúc chờ
+
+          if (
+            json &&
+            typeof json.error === "string" &&
+            /not authorized/i.test(json.error)
+          ) {
+            stopAll(
+              "Thiết bị chưa được cấp quyền (Device not authorized). Đã dừng gọi API.",
+            );
+            return;
+          }
+
+          if (!res.ok) {
+            const err = new Error("HTTP " + res.status);
+            err.status = res.status;
+            throw err;
+          }
+          if (!json) throw new Error("Phản hồi không phải JSON");
           if (json.success === false)
             throw new Error("API trả về success: false");
+
           lastItems = parse(json);
           render(lastItems);
         } catch (e) {
           if (myGen === gen && !cards.size)
             showStatus("Không tải được dữ liệu: " + e.message, true);
+          if (e.status === 404) checkAuth(myGen);
         } finally {
           clearTimeout(timer);
           loading = false;
@@ -866,8 +753,9 @@
         }
 
         const idChanged = v !== deviceId;
-        const wasStopped = stopped;
         deviceId = v;
+        lastAuthCheck = 0;
+        startTimers(); // chạy lại nếu trước đó đã bị dừng
         minRatio = r;
         const ok = writeDeviceId(v);
         writeMinRatio(r);
@@ -877,43 +765,21 @@
           gen++;
           lastItems = [];
           lastCounts = null;
-          auth = null; // chưa xác nhận kích hoạt -> chưa được gọi API links
           syncTabs();
           clearCards();
-          showStatus("Đang kiểm tra kích hoạt...", false);
+          showStatus("Đang tải...", false);
           loading = false;
-        } else if (wasStopped) {
-          auth = null; // đang dừng vì hết hạn -> kiểm tra lại từ đầu
-          clearCards();
-          showStatus("Đang kiểm tra kích hoạt...", false);
         } else {
           render(lastItems); // lọc lại ngay bằng dữ liệu đang có
         }
-        startPolling(); // bật lại polling nếu đang dừng
-        renderAuth();
         load();
-        loadAuth();
       });
 
       buildTabs();
       inputEl.value = deviceId;
       ratioEl.value = minRatio == null ? "" : String(minRatio);
+      startTimers();
       load();
-      loadAuth();
-      renderAuth();
-      startPolling();
-      // mỗi giây: đếm ngược thời gian key + link hết giờ biến mất ngay + dừng hẳn khi key hết hạn
-      setInterval(() => {
-        renderAuth();
-        if (!deviceId || stopped) return;
-        if (isExpired()) {
-          stopAll();
-        } else if (isActive()) {
-          if (lastItems.length) render(lastItems);
-        } else if (lastItems.length || cards.size) {
-          blockLinks();
-        }
-      }, 1000);
     </script>
   </body>
 </html>
